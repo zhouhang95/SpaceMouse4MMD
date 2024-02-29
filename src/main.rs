@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::mem::size_of;
 
-use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId}}};
+use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId, PostMessageA, WM_PAINT}}};
 
 struct AxisSpec {
     channel: u8,
@@ -128,6 +128,7 @@ fn main() {
                     0 as _
                 );
             }
+            unsafe { PostMessageA(h_wnd.unwrap(), WM_PAINT, 0, 0) };
         }
     }
 }
