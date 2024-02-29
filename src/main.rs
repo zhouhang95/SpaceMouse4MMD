@@ -104,10 +104,11 @@ fn main() {
         let res = device.read(&mut buf[..]).unwrap();
         println!("Read: {}: {:?}", res, &buf[..res]);
         if buf[0] == 1 {
+            continue;
             let x: i16 = bytemuck::must_cast([buf[1], buf[2]]);
             let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
             let z: i16 = bytemuck::must_cast([buf[5], buf[6]]);
-            let hid_xyz = glam::vec3(x as f32, y as f32, z as f32) * glam::vec3(1.0, -1.0, -1.0);
+            let mmd_xyz = glam::vec3(x as f32, z as f32, y as f32) * glam::vec3(-1.0, 1.0, 1.0);
             let mut xyz = glam::Vec3::ZERO;
             unsafe {
                 ReadProcessMemory(
@@ -118,7 +119,7 @@ fn main() {
                     0 as _
                 );
             }
-            xyz = xyz + hid_xyz * 0.001;
+            xyz = xyz + mmd_xyz * 0.001;
             unsafe {
                 WriteProcessMemory(
                     handle,
@@ -128,7 +129,34 @@ fn main() {
                     0 as _
                 );
             }
-            unsafe { PostMessageA(h_wnd.unwrap(), WM_PAINT, 0, 0) };
         }
+        else if buf[0] == 2 {
+            let x: i16 = bytemuck::must_cast([buf[1], buf[2]]);
+            let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
+            let z: i16 = bytemuck::must_cast([buf[5], buf[6]]);
+            let mmd_rxyz = glam::vec3(y as f32, x as f32, z as f32) * glam::vec3(0.0, -1.0, 1.0);
+            let mut rxyz = glam::Vec3::ZERO;
+            unsafe {
+                ReadProcessMemory(
+                    handle,
+                    (addr + 836) as _,
+                    &mut rxyz as *mut glam::Vec3 as *mut _,
+                    size_of::<glam::Vec3>(),
+                    0 as _
+                );
+            }
+            rxyz = rxyz + mmd_rxyz * 0.001;
+            unsafe {
+                WriteProcessMemory(
+                    handle,
+                    (addr + 836) as _,
+                    &mut rxyz as *mut glam::Vec3 as *mut _,
+                    size_of::<glam::Vec3>(),
+                    0 as _
+                );
+            }
+            
+        }
+        unsafe { PostMessageA(h_wnd.unwrap(), WM_PAINT, 0, 0) };
     }
 }
