@@ -6,4 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+glam = "0.25"
 hidapi = { version = "2", features = ["macos-shared-device"]}
+bytemuck = { version = "1", features = ["must_cast"]}
+windows-sys = { version = "0.48.0", default-features = true, features = [
+    "Win32_System_ProcessStatus",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_System_Threading",
+] }

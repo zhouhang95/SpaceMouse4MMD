@@ -1,3 +1,8 @@
+#![allow(dead_code)]
+use std::mem::size_of;
+
+use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId}}};
+
 struct AxisSpec {
     channel: u8,
     byte1: u8,
@@ -22,7 +27,48 @@ impl DeviceSpec {
     }
 }
 
+unsafe fn get_base_addr_by_enum_process(pid: u32) -> u64 {
+    let h_process = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
+    let mut module: [HMODULE; 256] = [0; 256];
+    let mut size: u32 = 0;
+
+    EnumProcessModules(h_process, &mut module[0], module.len() as _, &mut size);
+
+    module[0] as _
+}
+unsafe fn get_mmd_main_h_wnd() -> Option<isize> {
+    let h_wnd = FindWindowA(s!("Polygon Movie Maker"), 0 as _);
+    if h_wnd > 0 {
+        Some(h_wnd)
+    } else {
+        None
+    }
+}
+unsafe fn get_mmd_main_handle_and_addr(h_wnd: isize) -> (isize, u64) {
+    let mut pid: u32 = 0;
+    GetWindowThreadProcessId(h_wnd, &mut pid);
+    let base = get_base_addr_by_enum_process(pid);
+    let handle = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
+
+    let mut addr: u64 = 0;
+    ReadProcessMemory(
+        handle,
+        (base + 0x1445F8) as _,
+        &mut addr as *mut u64 as *mut _,
+        size_of::<u64>(),
+        0 as _
+    );
+    (handle, addr)
+}
+
 fn main() {
+    let h_wnd = unsafe { get_mmd_main_h_wnd() };
+    if h_wnd.is_some() {
+        eprintln!("Found MMD!");
+    } else {
+        eprintln!("Not Found MMD!");
+    }
+
     let space_navigator = DeviceSpec {
         vid: 0x046d,
         pid: 0xc626,
@@ -35,23 +81,53 @@ fn main() {
             AxisSpec { channel: 2, byte1: 5, byte2: 6 },
         ],
     };
-    println!("Hello, world!");
     let api = hidapi::HidApi::new().unwrap();
     // Print out information about all connected devices
     let mut devices = Vec::new();
     for device in api.device_list() {
-        println!("{:#?}", device);
         if device.vendor_id() == space_navigator.vid {
             if device.product_id() == space_navigator.pid {
                 devices.push(device.clone());
             }
         }
     }
+    if devices.len() > 0 {
+        eprintln!("Found 3D Mouse!");
+    } else {
+        eprintln!("Not Found 3D Mouse!");
+    }
+    let (handle, addr) = unsafe { get_mmd_main_handle_and_addr(h_wnd.unwrap()) };
     let device: hidapi::HidDevice = devices[0].open_device(&api).unwrap();
     // Read data from device
     loop {
         let mut buf = [0u8; 32];
         let res = device.read(&mut buf[..]).unwrap();
         println!("Read: {}: {:?}", res, &buf[..res]);
+        if buf[0] == 1 {
+            let x: i16 = bytemuck::must_cast([buf[1], buf[2]]);
+            let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
+            let z: i16 = bytemuck::must_cast([buf[5], buf[6]]);
+            let hid_xyz = glam::vec3(x as f32, y as f32, z as f32) * glam::vec3(1.0, -1.0, -1.0);
+            let mut xyz = glam::Vec3::ZERO;
+            unsafe {
+                ReadProcessMemory(
+                    handle,
+                    (addr + 876) as _,
+                    &mut xyz as *mut glam::Vec3 as *mut _,
+                    size_of::<glam::Vec3>(),
+                    0 as _
+                );
+            }
+            xyz = xyz + hid_xyz * 0.001;
+            unsafe {
+                WriteProcessMemory(
+                    handle,
+                    (addr + 876) as _,
+                    &mut xyz as *mut glam::Vec3 as *mut _,
+                    size_of::<glam::Vec3>(),
+                    0 as _
+                );
+            }
+        }
     }
 }
