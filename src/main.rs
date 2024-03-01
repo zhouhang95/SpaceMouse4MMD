@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use std::mem::size_of;
 
+use glam::{vec3, Mat3, Vec3};
 use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId, PostMessageA, WM_PAINT}}};
 
 struct AxisSpec {
@@ -61,6 +62,13 @@ unsafe fn get_mmd_main_handle_and_addr(h_wnd: isize) -> (isize, u64) {
     (handle, addr)
 }
 
+pub fn rot3(rot: Vec3) -> Mat3 {
+    let yaw = Mat3::from_rotation_y(rot.y);
+    let pitch = Mat3::from_rotation_x(rot.x);
+    let roll = Mat3::from_rotation_z(rot.z);
+    roll * pitch * yaw
+}
+
 fn main() {
     let h_wnd = unsafe { get_mmd_main_h_wnd() };
     if h_wnd.is_some() {
@@ -103,6 +111,17 @@ fn main() {
         let mut buf = [0u8; 32];
         let _res = device.read(&mut buf[..]).unwrap();
         // println!("Read: {}: {:?}", res, &buf[..res]);
+        let mut rxyz = glam::Vec3::ZERO;
+        unsafe {
+            ReadProcessMemory(
+                handle,
+                (addr + 840) as _,
+                &mut rxyz as *mut glam::Vec3 as *mut _,
+                size_of::<glam::Vec3>(),
+                0 as _
+            );
+        }
+
         if buf[0] == 1 {
             let x: i16 = bytemuck::must_cast([buf[1], buf[2]]);
             let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
@@ -118,6 +137,8 @@ fn main() {
                     0 as _
                 );
             }
+            let rot = rot3(rxyz * vec3(-1.0, -1.0, 1.0));
+            let mmd_xyz = rot * mmd_xyz;
             xyz = xyz + mmd_xyz * 0.003;
             unsafe {
                 WriteProcessMemory(
@@ -134,16 +155,6 @@ fn main() {
             let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
             let z: i16 = bytemuck::must_cast([buf[5], buf[6]]);
             let mmd_rxyz = glam::vec3(x as f32, z as f32, y as f32) * glam::vec3(-1.0, 1.0, 1.0)  * -1.0;
-            let mut rxyz = glam::Vec3::ZERO;
-            unsafe {
-                ReadProcessMemory(
-                    handle,
-                    (addr + 840) as _,
-                    &mut rxyz as *mut glam::Vec3 as *mut _,
-                    size_of::<glam::Vec3>(),
-                    0 as _
-                );
-            }
             rxyz = rxyz + mmd_rxyz * 0.0003;
             unsafe {
                 WriteProcessMemory(
