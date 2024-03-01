@@ -1,5 +1,5 @@
 [package]
-name = "hid_space_mouse"
+name = "space_mouse_4_mmd"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 glam = "0.25"
-hidapi = { version = "2", features = ["macos-shared-device"]}
+hidapi = { version = "2"}
 bytemuck = { version = "1", features = ["must_cast"]}
 windows-sys = { version = "0.48.0", default-features = true, features = [
     "Win32_System_ProcessStatus",
@@ -15,4 +15,5 @@ windows-sys = { version = "0.48.0", default-features = true, features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_Foundation",
     "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
 ] }

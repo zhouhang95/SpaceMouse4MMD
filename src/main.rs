@@ -2,7 +2,7 @@
 use std::mem::size_of;
 
 use glam::{vec3, Mat3, Vec3};
-use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId, PostMessageA, WM_PAINT}}};
+use windows_sys::{s, Win32::{Foundation::HMODULE, System::{Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory}, ProcessStatus::EnumProcessModules, Threading::{OpenProcess, PROCESS_ALL_ACCESS}}, UI::WindowsAndMessaging::{FindWindowA, GetWindowThreadProcessId, MessageBoxA, PostMessageA, MB_OK, WM_PAINT}}};
 
 struct AxisSpec {
     channel: u8,
@@ -71,10 +71,9 @@ pub fn rot3(rot: Vec3) -> Mat3 {
 
 fn main() {
     let h_wnd = unsafe { get_mmd_main_h_wnd() };
-    if h_wnd.is_some() {
-        eprintln!("Found MMD!");
-    } else {
-        eprintln!("Not Found MMD!");
+    if h_wnd.is_none() {
+        unsafe { MessageBoxA(0, s!("Not Found MMD, please launch MMD!"), s!("MMD 3D Space Mouse"), MB_OK) };
+        return;
     }
     let (handle, addr) = unsafe { get_mmd_main_handle_and_addr(h_wnd.unwrap()) };
 
@@ -100,10 +99,9 @@ fn main() {
             }
         }
     }
-    if devices.len() > 0 {
-        eprintln!("Found 3D Mouse!");
-    } else {
-        eprintln!("Not Found 3D Mouse!");
+    if devices.len() == 0 {
+        unsafe { MessageBoxA(0, s!("Not Found 3D Space Mouse, please connect your device"), s!("MMD 3D Space Mouse"), MB_OK) };
+        return;
     }
     let device: hidapi::HidDevice = devices[0].open_device(&api).unwrap();
     // Read data from device
@@ -155,7 +153,7 @@ fn main() {
             let y: i16 = bytemuck::must_cast([buf[3], buf[4]]);
             let z: i16 = bytemuck::must_cast([buf[5], buf[6]]);
             let mmd_rxyz = glam::vec3(x as f32, z as f32, y as f32) * glam::vec3(-1.0, 1.0, 1.0)  * -1.0;
-            rxyz = rxyz + mmd_rxyz * 0.0003;
+            rxyz = rxyz + mmd_rxyz * 0.0001;
             unsafe {
                 WriteProcessMemory(
                     handle,
