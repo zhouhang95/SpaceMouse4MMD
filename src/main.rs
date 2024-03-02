@@ -76,6 +76,7 @@ fn main() {
         return;
     }
     let (handle, addr) = unsafe { get_mmd_main_handle_and_addr(h_wnd.unwrap()) };
+    eprint!("addr: {:X}", addr);
 
     let space_navigator = DeviceSpec {
         vid: 0x046d,
@@ -106,6 +107,17 @@ fn main() {
     let device: hidapi::HidDevice = devices[0].open_device(&api).unwrap();
     // Read data from device
     loop {
+        unsafe {
+            let mut dist: f32 = 0.0;
+            WriteProcessMemory(
+                handle,
+                (addr + 661752) as _,
+                &mut dist as *mut f32 as *mut _,
+                size_of::<f32>(),
+                0 as _
+            );
+        }
+        
         let mut buf = [0u8; 32];
         let _res = device.read(&mut buf[..]).unwrap();
         // println!("Read: {}: {:?}", res, &buf[..res]);
